@@ -245,7 +245,10 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 }
 
                 boolean wasActive = isActive();
+
+
                 if (doConnect(remoteAddress, localAddress)) {
+                    //处理客户端连接事件
                     fulfillConnectPromise(promise, wasActive);
                 } else {
                     connectPromise = promise;
@@ -302,6 +305,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             // Regardless if the connection attempt was cancelled, channelActive() event should be triggered,
             // because what happened is what happened.
             if (!wasActive && active) {
+                //进入 主线程的责任链处理
                 pipeline().fireChannelActive();
             }
 
@@ -377,6 +381,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                //serverSocket 注册到selector
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {

@@ -195,6 +195,22 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return addLast(null, name, handler);
     }
 
+
+
+
+
+//    检查该 handler 是否符合标准，如果没有 Sharable 注解且已经被使用过了，就抛出异常。
+//    创建一个 AbstractChannelHandlerContext 对象，这里说一下，ChannelHandlerContext 对象
+//   是 ChannelHandler 和 ChannelPipeline 之间的关联，每当有 ChannelHandler 添加到 Pipeline 中时，
+// 都会创建 Context。Context 的主要功能是管理他所关联的 Handler 和同一个 Pipeline 中的其他 Handler 之间的交互。
+//    然后将 Context 添加到链表中。也就是追加到 tail 节点的前面。
+//    最后，同步或者异步或者晚点异步的调用 callHandlerAdded0 方法，在该方法中，调用之前
+// 的 handler 的 handlerAdded 方法，而该方法内部调用了之前的 ChannelInitializer 匿名类的
+// initChannel 方法，并且参数就是 context 的 channel（通过 pipeline 获取），也就是 NioServerSocketChannel。
+// 这个 Context 的标准实现就是 DefaultChannelHandlerContext。这个 Context 内部会包含一些重要的属性，
+// 比如 pipeline，handler，属于出站类型还是入站类型等
+
+
     @Override
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
@@ -203,6 +219,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            //添加context 链条
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
@@ -970,6 +987,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelFuture bind(SocketAddress localAddress, ChannelPromise promise) {
+
         return tail.bind(localAddress, promise);
     }
 

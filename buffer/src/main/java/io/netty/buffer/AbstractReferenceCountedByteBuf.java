@@ -55,7 +55,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
         // a best-effort guard.
         return updater.isLiveNonVolatile(this);
     }
-
+    /**  返回该对象的引用计数。如果为0，则表示该对象已解除分配，是时候释放了。 */
     @Override
     public int refCnt() {
         return updater.refCnt(this);

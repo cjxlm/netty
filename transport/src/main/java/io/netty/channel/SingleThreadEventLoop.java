@@ -76,14 +76,26 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
         return (EventLoop) super.next();
     }
 
+    //拿到下一个单例线程池后，调用他的 register 方法
+
+    /**
+     * 为什么使用单例线程池呢？一个线程还使用线程池有什么意义呢？答：需要任务队列，
+     * 有很多任务需要进行调度，所以需要线程池的特性。但为了多线程的切换导致的性能损耗和为了消除同步，
+     * 所以使用单个线程
+     *
+     * @param channel
+     * @return
+     */
     @Override
     public ChannelFuture register(Channel channel) {
+        // 执行注册相关的逻辑
         return register(new DefaultChannelPromise(channel, this));
     }
 
     @Override
     public ChannelFuture register(final ChannelPromise promise) {
         ObjectUtil.checkNotNull(promise, "promise");
+        //  调用channel中unsafe对象的注册方法(AbstractUnsafe)
         promise.channel().unsafe().register(this, promise);
         return promise;
     }

@@ -21,6 +21,7 @@ package io.netty.channel;
 public final class DefaultSelectStrategyFactory implements SelectStrategyFactory {
     public static final SelectStrategyFactory INSTANCE = new DefaultSelectStrategyFactory();
 
+    //默认复路器策略
     private DefaultSelectStrategyFactory() { }
 
     @Override

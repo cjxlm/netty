@@ -72,6 +72,8 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        //doReadMessages，注册客房端socket 模板方法 留给真正的 实现者
+                        //等待accept事件 接收客戶連接
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -90,6 +92,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // channelPipeline中放入io线程池中读写
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();

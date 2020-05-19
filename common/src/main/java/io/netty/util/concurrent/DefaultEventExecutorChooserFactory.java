@@ -65,6 +65,17 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
             this.executors = executors;
         }
 
+        /**
+         * 注意，这里是著名的 Netty 对性能压榨的一个例子，Netty 对于选取数组中的线程有着2套策略。
+         *
+         * 如果数组是偶数，则使用位运算获取下一个EventLoop（单例线程池）（效率高）。
+         * 如果是奇数，使用取余（效率低）。
+         * 所以，如果是自定义数组长度的话，最好是偶数，默认的就是CPU 核心的2倍，即偶数。
+         *
+         * 并且，在判断数组是否是偶数的算法中，也没有使用取余，而是位运算
+         *
+         * @return
+         */
         @Override
         public EventExecutor next() {
             return executors[Math.abs(idx.getAndIncrement() % executors.length)];

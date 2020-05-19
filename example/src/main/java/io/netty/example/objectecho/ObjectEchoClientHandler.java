@@ -49,7 +49,8 @@ public class ObjectEchoClientHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         // Echo back the received object to the server.
-        ctx.write(msg);
+        System.out.println(msg);
+        ctx.write("adsfsd");
     }
 
     @Override

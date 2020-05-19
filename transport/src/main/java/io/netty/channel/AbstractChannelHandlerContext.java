@@ -138,17 +138,31 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return name;
     }
 
+    //
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
         invokeChannelRegistered(findContextInbound(MASK_CHANNEL_REGISTERED));
         return this;
     }
 
+
+//    next 节点就是我设置的 LoggingHandler 对应的 Context，获取对
+//    应的 EventLoop。从这里我们总结一下 netty 的 Handler 设计：Netty 初始了
+//    一个 pipeline，pipeline 内部维护着一个 ChannelContextContext 双向链表，
+//    Context 是对 Handler 的封装，是 pipeline 和 Handler 沟通的关键，每次信息入站，
+//    从 head 节点开始，执行 context 的 handler 的对应方法，执行结束通过 findContextInbound() 方法找到下一个节点，继续执行。
+//
+//    tail 节点的 channelRegistered 什么都不做。
+//
+//    好，终于可以回到我们 ServerBootStrap 的 initAndRegister 方法中了
+
     static void invokeChannelRegistered(final AbstractChannelHandlerContext next) {
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeChannelRegistered();
         } else {
+//            线程池中执行
+            //处理io 网络事件  看execute 再看里面的任务
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -159,6 +173,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeChannelRegistered() {
+        //判断状态
         if (invokeHandler()) {
             try {
                 ((ChannelInboundHandler) handler()).channelRegistered(this);
@@ -356,12 +371,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return this;
     }
 
+    //io 子线程
     static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) {
         final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeChannelRead(m);
         } else {
+            //io 子线程
             executor.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -374,6 +391,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     private void invokeChannelRead(Object msg) {
         if (invokeHandler()) {
             try {
+                // DefaultChannelHandlerContext 中处理 注册客户端channel的入口
+
                 ((ChannelInboundHandler) handler()).channelRead(this, msg);
             } catch (Throwable t) {
                 notifyHandlerException(t);
@@ -526,6 +545,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
 
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_CONNECT);
+
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeConnect(remoteAddress, localAddress, promise);
@@ -912,6 +932,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return ctx;
     }
 
+    //找到相应出栈的context
     private AbstractChannelHandlerContext findContextOutbound(int mask) {
         AbstractChannelHandlerContext ctx = this;
         do {

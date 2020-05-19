@@ -120,11 +120,17 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return this;
     }
 
+
+//    设置 NioServerSocketChannel 的 TCP 属性。
+//    由于 LinkedHashMap 是非线程安全的，使用同步进行处理。
+//    对 NioServerSocketChannel 的 ChannelPipeline 添加 ChannelInitializer 处理器。
+
     @Override
     void init(Channel channel) {
         setChannelOptions(channel, options0().entrySet().toArray(EMPTY_OPTION_ARRAY), logger);
         setAttributes(channel, attrs0().entrySet().toArray(EMPTY_ATTRIBUTE_ARRAY));
 
+         //反射创建 NioServerSocketChannel的 拿出 DefaultChannelPipeline
         ChannelPipeline p = channel.pipeline();
 
         final EventLoopGroup currentChildGroup = childGroup;
@@ -133,7 +139,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 childOptions.entrySet().toArray(EMPTY_OPTION_ARRAY);
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = childAttrs.entrySet().toArray(EMPTY_ATTRIBUTE_ARRAY);
 
+        //  ChannelInitializer是一个特殊的handler，一般就是在registered之后，执行一次，然后销毁。
+        // 用于初始化channel
+
+        //核心方法  ChannelPipeline 为一个双向链表
         p.addLast(new ChannelInitializer<Channel>() {
+            //  触发ChannelInitializer时，收到注册成功的事件后，就会执行initChannel方法
             @Override
             public void initChannel(final Channel ch) {
                 final ChannelPipeline pipeline = ch.pipeline();
@@ -142,9 +153,16 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     pipeline.addLast(handler);
                 }
 
+                //获取 EventLoop 并提交一个任务
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+
+                    //   NioServerSocketChannel 的 EventLoop 提交了一个任务，
+                    // 也就是 pipeline 的 addLast 方法。是一个 ServerBootstrapAcceptor 对象，
+                    // 而这个 ServerBootstrapAcceptor 也是一个 handler，你可以想到了吧，
+                    // 从该 handler 名字就可以看出来，该 handler 是用于处理 accept 事件的
+
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -190,11 +208,14 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             enableAutoReadTask = new Runnable() {
                 @Override
                 public void run() {
+
+                    //拿到入口设置的配制
                     channel.config().setAutoRead(true);
                 }
             };
         }
 
+        //reactory 线程中把读写事件的channel 放到io线程中
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -206,6 +227,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             setAttributes(child, childAttrs);
 
             try {
+
+                // 将客户端连接注册到 worker 线程池
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

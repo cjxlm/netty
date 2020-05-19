@@ -38,6 +38,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * technics of
  * <a href="https://www.facebook.com/notes/facebook-engineering/scalable-memory-allocation-using-jemalloc/480222803919">
  * Scalable memory allocation using jemalloc</a>.
+ *
+ *
+ * netty将内存分为不同层次，如16M、8M、4M、2M、1M、512K等等，
+ * 根据申请时capacity的不同而选择不同内存区块
+ * directArena.allocate代码，如果PoolThreadCache满了之后，netty会向JVM申请新的内存，
+ * 但是这些内存不会存在缓存池中。
+ *
  */
 final class PoolThreadCache {
 
@@ -187,7 +194,7 @@ final class PoolThreadCache {
             // no cache found so just return false here
             return false;
         }
-        boolean allocated = cache.allocate(buf, reqCapacity);
+        boolean allocated = cache.allocate(buf, reqCapacity);//  开始分配内存
         if (++ allocations >= freeSweepAllocationThreshold) {
             allocations = 0;
             trim();

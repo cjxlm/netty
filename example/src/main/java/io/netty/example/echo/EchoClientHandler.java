@@ -19,6 +19,10 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.example.objectecho.ObjectEchoClient;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Handler implementation for the echo client.  It initiates the ping-pong
@@ -27,37 +31,48 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
  */
 public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
-    private final ByteBuf firstMessage;
+//    private final ByteBuf firstMessage;
+//
+//    /**
+//     * Creates a client-side handler.
+//     */
+//    public EchoClientHandler() {
+//        firstMessage = Unpooled.buffer(EchoClient.SIZE);
+//        for (int i = 0; i < firstMessage.capacity(); i ++) {
+//            firstMessage.writeByte((byte) i);
+//        }
+//
+//    }
+//
+//    @Override
+//    public void channelActive(ChannelHandlerContext ctx) {
+//        System.out.println(firstMessage);
+//        ctx.writeAndFlush(firstMessage);
+//    }
 
-    /**
-     * Creates a client-side handler.
-     */
-    public EchoClientHandler() {
-        firstMessage = Unpooled.buffer(EchoClient.SIZE);
-        for (int i = 0; i < firstMessage.capacity(); i ++) {
-            firstMessage.writeByte((byte) i);
-        }
-    }
-
+    //?????
     @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        ctx.writeAndFlush(firstMessage);
+    public void channelRead(ChannelHandlerContext ctx, Object result) throws Exception {
+        System.out.println(result);
+
+//        byte[] result1 = new byte[result.readableBytes()];
+//        result.readBytes(result1);
+//
+//        System.out.println("Server said:" + new String(result1));
+//        不要释放
+//        result.release();
+//
+        String response = "EchoClientHandler hello sever!";
+
+        // 在当前场景下，发送的数据必须转换成ByteBuf数组
+//        ByteBuf encoded = ctx.alloc().buffer(4 * response.length());
+
+//        ctx.read(encoded);
+
+
+        super.channelRead(ctx,result);
+
     }
 
-    @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
-    }
 
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-       ctx.flush();
-    }
-
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        // Close the connection when an exception is raised.
-        cause.printStackTrace();
-        ctx.close();
-    }
 }

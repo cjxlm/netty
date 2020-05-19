@@ -167,6 +167,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         super(parent);
         this.addTaskWakesUp = addTaskWakesUp;
         this.maxPendingTasks = DEFAULT_MAX_PENDING_EXECUTOR_TASKS;
+
+        //?????
         this.executor = ThreadExecutorMap.apply(executor, this);
         this.taskQueue = ObjectUtil.checkNotNull(taskQueue, "taskQueue");
         this.rejectedExecutionHandler = ObjectUtil.checkNotNull(rejectedHandler, "rejectedHandler");
@@ -812,6 +814,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return isTerminated();
     }
 
+    //处理io 网络事件
     @Override
     public void execute(Runnable task) {
         ObjectUtil.checkNotNull(task, "task");
@@ -824,10 +827,18 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     }
 
     private void execute(Runnable task, boolean immediate) {
+
+        //  判断execute方法的调用者是不是EventLoop同一个线程
         boolean inEventLoop = inEventLoop();
+
+       // 增加到运行中线程的任务队列中
         addTask(task);
+
         if (!inEventLoop) {
+
+            //开启eventloop执行  io 网络事件
             startThread();
+
             if (isShutdown()) {
                 boolean reject = false;
                 try {
@@ -940,10 +951,13 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
     private void startThread() {
+
+        //判断状态 是否开始执行线程
         if (state == ST_NOT_STARTED) {
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 boolean success = false;
                 try {
+
                     doStartThread();
                     success = true;
                 } finally {
@@ -973,11 +987,16 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         return false;
     }
 
+    //线程池执行入口
     private void doStartThread() {
         assert thread == null;
+        //  这里的executor是初始化EventLoop的时候传进来的
+        //线程池中提交任务  io thread 中 处理reactor事件
         executor.execute(new Runnable() {
             @Override
             public void run() {
+
+                //标记当前线程是哪个 绑定线程
                 thread = Thread.currentThread();
                 if (interrupted) {
                     thread.interrupt();
@@ -986,6 +1005,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    //  创建线程开始执行run方法，所以，每个EventLoop都是执行run
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

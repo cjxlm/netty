@@ -132,13 +132,18 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private int cancelledKeys;
     private boolean needsToSelectAgain;
 
+    //selector 封装
     NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,
                  SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler,
                  EventLoopTaskQueueFactory queueFactory) {
+
+        //创建队列
         super(parent, executor, false, newTaskQueue(queueFactory), newTaskQueue(queueFactory),
                 rejectedExecutionHandler);
         this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider");
         this.selectStrategy = ObjectUtil.checkNotNull(strategy, "selectStrategy");
+
+        //初始化selector
         final SelectorTuple selectorTuple = openSelector();
         this.selector = selectorTuple.selector;
         this.unwrappedSelector = selectorTuple.unwrappedSelector;
@@ -167,6 +172,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    //获取 selector 复用器
     private SelectorTuple openSelector() {
         final Selector unwrappedSelector;
         try {
@@ -348,8 +354,17 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     }
 
     /**
-     * Replaces the current {@link Selector} of this event loop with newly created {@link Selector}s to work
+     * Replaces the current {@link Selector} of this event
+     * loop with newly created {@link Selector}s to work
      * around the infamous epoll 100% CPU bug.
+     *
+     *
+     * 重建所有 EventLoop 的 Selector 对象
+     *
+     * 因为 JDK 有 epoll 100% CPU Bug 。实际上，NioEventLoop 当触发该 Bug 时，
+     * 也会自动调用 NioEventLoop#rebuildSelector() 方法，进行重建 Selector 对象，
+     * 以修复该问题。
+     *
      */
     public void rebuildSelector() {
         if (!inEventLoop()) {
@@ -369,6 +384,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         return selector.keys().size() - cancelledKeys;
     }
 
+    //
     private void rebuildSelector0() {
         final Selector oldSelector = selector;
         final SelectorTuple newSelectorTuple;
@@ -431,6 +447,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    //线程池里处理selector连接事件  reactor 线程池方法内容
+    //  执行两件事selector,select的事件 和 taskQueue里面的内容
     @Override
     protected void run() {
         int selectCnt = 0;
@@ -453,6 +471,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                         }
                         nextWakeupNanos.set(curDeadlineNanos);
                         try {
+
+                            // 监听连接
                             if (!hasTasks()) {
                                 strategy = select(curDeadlineNanos);
                             }
@@ -467,6 +487,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 } catch (IOException e) {
                     // If we receive an IOException here its because the Selector is messed up. Let's rebuild
                     // the selector and retry. https://github.com/netty/netty/issues/8566
+
+                    //重连
                     rebuildSelector0();
                     selectCnt = 0;
                     handleLoopException(e);
@@ -481,6 +503,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 if (ioRatio == 100) {
                     try {
                         if (strategy > 0) {
+                            //处理reactor事件
                             processSelectedKeys();
                         }
                     } finally {
@@ -490,13 +513,15 @@ public final class NioEventLoop extends SingleThreadEventLoop {
                 } else if (strategy > 0) {
                     final long ioStartTime = System.nanoTime();
                     try {
+                        //处理reactor事件
                         processSelectedKeys();
                     } finally {
-                        // Ensure we always run tasks.
+                        // Ensure we always run tasks.  确保启动所有任务
                         final long ioTime = System.nanoTime() - ioStartTime;
                         ranTasks = runAllTasks(ioTime * (100 - ioRatio) / ioRatio);
                     }
                 } else {
+                    //执行什么任务？？？？
                     ranTasks = runAllTasks(0); // This will run the minimum number of tasks
                 }
 
@@ -520,6 +545,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             }
             // Always handle shutdown even if the loop processing threw an exception.
             try {
+                // 关闭连接 退出，线程执行完毕
                 if (isShuttingDown()) {
                     closeAll();
                     if (confirmShutdown()) {
@@ -571,10 +597,12 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    //处理reactor 事件
     private void processSelectedKeys() {
         if (selectedKeys != null) {
             processSelectedKeysOptimized();
         } else {
+            //处理reactor事件
             processSelectedKeysPlain(selector.selectedKeys());
         }
     }
@@ -606,6 +634,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
 
         Iterator<SelectionKey> i = selectedKeys.iterator();
+        //循环处理reactory事件  主线程中
         for (;;) {
             final SelectionKey k = i.next();
             final Object a = k.attachment();
@@ -616,6 +645,8 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             } else {
                 @SuppressWarnings("unchecked")
                 NioTask<SelectableChannel> task = (NioTask<SelectableChannel>) a;
+
+                // channel退出
                 processSelectedKey(k, task);
             }
 
@@ -665,6 +696,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    // 处理reactor 事件  在主线程池中， 读写在子线程池中
     private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
         final AbstractNioChannel.NioUnsafe unsafe = ch.unsafe();
         if (!k.isValid()) {
@@ -692,6 +724,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             int readyOps = k.readyOps();
             // We first need to call finishConnect() before try to trigger a read(...) or write(...) as otherwise
             // the NIO JDK channel implementation may throw a NotYetConnectedException.
+            //客户端首次连接时处理
             if ((readyOps & SelectionKey.OP_CONNECT) != 0) {
                 // remove OP_CONNECT as otherwise Selector.select(..) will always return without blocking
                 // See https://github.com/netty/netty/issues/924
@@ -731,6 +764,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             switch (state) {
             case 0:
                 k.cancel();
+                //放入io线程池中
                 invokeChannelUnregistered(task, k, null);
                 break;
             case 1:

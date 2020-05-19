@@ -233,6 +233,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * Create a new {@link Channel} and bind it.
+     *
+     *  新建 InetSocketAddress
      */
     public ChannelFuture bind(int inetPort) {
         return bind(new InetSocketAddress(inetPort));
@@ -261,16 +263,26 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+
+        //初始化 NioServerSocketChannel 通道并注册各个 handler，返回一个 future
+        //  创建/初始化ServerSocketChannel对象，并注册到Selector
+
         final ChannelFuture regFuture = initAndRegister();
+
+
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        //  等注册完成之后，再绑定端口。 防止端口开放了，却不能处理请求
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
+            //完成对端口的绑定
             doBind0(regFuture, channel, localAddress, promise);
+
+
             return promise;
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
@@ -288,6 +300,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
 
+                        //完成对端口的绑定
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -299,7 +312,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            //反射创建 NioServerSocketChannel  ServerSocketChannel
+            //新建serversocket
             channel = channelFactory.newChannel();
+            //初始化channel 服务端  客户端不同实现
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -312,7 +328,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+        //注册多路复用器
+        //  （一开始初始化的group）MultithreadEventLoopGroup里面选择一个eventLoop进行绑定
+
         ChannelFuture regFuture = config().group().register(channel);
+
+
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
@@ -341,10 +362,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+
+        //  这里向EventLoop提交任务，一旦有任务提交则会触发EventLoop的轮询
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
-                if (regFuture.isSuccess()) {
+                if (regFuture.isSuccess()) { //  本质又绕回到channel的bind方法上面。
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

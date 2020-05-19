@@ -206,6 +206,19 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      *   <li>{@link #voidPromise()}</li>
      * </ul>
      */
+
+
+
+//    unsafe代表不安全的操作。但是更底层的操作会带来性能的提升和特殊功能，netty中会尽力使用unsafe。java的特性是“一处编写到处运行”，所以他针对底层的内存或其他操作做了很多封装。而unsafe提供了一系列操作底层的方法，可能会导致不兼容和不可知异常。所以在不是完全掌握的情况下不推荐使用unsafe。
+//            1.info. 仅返回一些低级的内存信息：addressSize、pageSize；
+//            2.Objects. 提供用于操作对象及其字段的方法：allocateInstance、objectFieldOffset；
+//            3.Classes. 提供用于操作类及其静态字段的方法：staticFieldOffset、defineClass。defineAnonymousClass、ensureClassInitialized；
+//            4.Synchronization. 低级的同步原语：monitorEnter、tyrMonitorEnter、monitorExit、compareAndSwapInt、putOrderedInt；
+//            5.Memory. 直接访问内存方法：allocateMemory、copyMemory、freeMemory、getAddress、getInt、putInt；
+//            6.Arrays. 操作数组：arrayBaseOffset、arrayIndexScale
+
+
+
     interface Unsafe {
 
         /**

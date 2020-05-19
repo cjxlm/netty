@@ -58,6 +58,8 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
              *  {@link SelectorProvider#provider()} which is called by each ServerSocketChannel.open() otherwise.
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
+             *
+             *  新建serversocket
              */
             return provider.openServerSocketChannel();
         } catch (IOException e) {
@@ -70,8 +72,17 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     /**
      * Create a new instance
+     *
+     * 通过 NIO 的SelectorProvider 的 openServerSocketChannel 方法得
+     * 到JDK 的 channel。目的是让 Netty 包装 JDK 的 channel。同时设置刚兴趣的事件为 ACCEPT和非阻塞
+     * 创建了一个唯一的 ChannelId，创建了一个 NioMessageUnsafe，用于操作消息，
+     * 创建了一个 DefaultChannelPipeline 管道，是个双向链表结构，用于过滤所有的进出的消息。
+     * 创建了一个 NioServerSocketChannelConfig 对象，用于对外展示一些配置。
+     *
+       反射调用生成 NioServerSocketChannel，新建serversocket
      */
     public NioServerSocketChannel() {
+        // 新建serversocket 再调用 this
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
 
@@ -144,6 +155,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     @Override
     protected int doReadMessages(List<Object> buf) throws Exception {
+        //等待accept事件 接收客戶連接
         SocketChannel ch = SocketUtils.accept(javaChannel());
 
         try {

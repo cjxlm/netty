@@ -16,17 +16,19 @@
 package io.netty.example.echo;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+
+import java.util.concurrent.Executors;
 
 /**
  * Sends one message when a connection is open and echoes back any received
@@ -34,6 +36,7 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
  * traffic between the echo client and server by sending the first message to
  * the server.
  */
+@SuppressWarnings("ALL")
 public final class EchoClient {
 
     static final boolean SSL = System.getProperty("ssl") != null;
@@ -51,8 +54,9 @@ public final class EchoClient {
             sslCtx = null;
         }
 
+        EchoClientHandler2 echoClientHandler2 = new EchoClientHandler2();
         // Configure the client.
-        EventLoopGroup group = new NioEventLoopGroup();
+        EventLoopGroup group = new NioEventLoopGroup(1);
         try {
             Bootstrap b = new Bootstrap();
             b.group(group)
@@ -65,13 +69,54 @@ public final class EchoClient {
                      if (sslCtx != null) {
                          p.addLast(sslCtx.newHandler(ch.alloc(), HOST, PORT));
                      }
-                     //p.addLast(new LoggingHandler(LogLevel.INFO));
+//                     p.addLast(new LoggingHandler(LogLevel.INFO));
+
+
                      p.addLast(new EchoClientHandler());
+                     p.addLast(echoClientHandler2);
+                     p.addLast(new EchoClientOutChannelHandler());
+
+//
+
+//                     p.addLast(
+//                             new ObjectEncoder(),
+//                             new ObjectDecoder(ClassResolvers.cacheDisabled(null)),new EchoClientHandler());
+//                     p.addLast(new EchoClientOutChannelHandler());
                  }
              });
 
             // Start the client.
             ChannelFuture f = b.connect(HOST, PORT).sync();
+
+            boolean flag = true;
+
+                Executors.newFixedThreadPool(1).submit(()->{
+                            while (flag){
+                               Channel channel =  f.channel();
+
+                               String msg = "test netty";
+
+
+//                                ByteBuf encoded = channel.alloc().buffer(4 * msg.length());
+//                                encoded.writeBytes(msg.getBytes());
+//                                channel.writeAndFlush(encoded).addListener(new ChannelFutureListener() {
+//                                    @Override
+//                                    public void operationComplete(ChannelFuture future) {
+//
+//                                    }
+//                                });
+
+
+                                echoClientHandler2.send(msg);
+
+
+//                                break;
+
+                            }
+                });
+
+
+
 
             // Wait until the connection is closed.
             f.channel().closeFuture().sync();

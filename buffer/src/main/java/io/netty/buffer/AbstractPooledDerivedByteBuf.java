@@ -25,6 +25,7 @@ import java.nio.ByteOrder;
 /**
  * Abstract base class for derived {@link ByteBuf} implementations.
  */
+//  这是netty自己的一种buffer释放机制。概念上和GC类似
 abstract class AbstractPooledDerivedByteBuf extends AbstractReferenceCountedByteBuf {
 
     private final Handle<AbstractPooledDerivedByteBuf> recyclerHandle;

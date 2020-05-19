@@ -27,6 +27,15 @@ public final class ThreadPerTaskExecutor implements Executor {
         this.threadFactory = ObjectUtil.checkNotNull(threadFactory, "threadFactory");
     }
 
+    //    “命令模式”：execute(Runnable command)这里使用到了命令模式，
+    //      任务的请求和执行分离开来了。
+
+
+    //    “代理模式”：这里execute方法实现并不是由ThreadPerTaskExecutor来执行的，
+    // 而是交由ThreadFactory来执行的。ThreadFactory是通过构造方法传递进来的。
+
+
+
     @Override
     public void execute(Runnable command) {
         threadFactory.newThread(command).start();

@@ -245,6 +245,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     @Override
     public ChannelFuture bind(SocketAddress localAddress, ChannelPromise promise) {
+        // 这里触发一个netty职责链中的bind事件，由应用代码发起到底层，属于outBound
         return pipeline.bind(localAddress, promise);
     }
 
@@ -449,6 +450,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+//        先是一系列的判断。
+
+//        判断当前线程是否是给定的 eventLoop 线程。注意：这点很重要，
+// Netty 线程模型的高性能取决于对于当前执行的Thread 的身份的确定。如果不在当前线程，
+// 那么就需要很多同步措施（比如加锁），上下文切换等耗费性能的操作。
+
+//        异步（因为我们这里直到现在还是 main 线程在执行，不属于当前线程）的执行 register0 方法
+
+
+        //注册多路复用器
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
@@ -464,10 +475,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             AbstractChannel.this.eventLoop = eventLoop;
 
+            //  如果调用register方法的线程和EventLoop执行线程
+            // 不是同一个线程，则以任务形式提交绑定操作
+
             if (eventLoop.inEventLoop()) {
+                //  实际就是调用这个方法
                 register0(promise);
             } else {
                 try {
+//                    注册事件
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {
@@ -484,7 +500,13 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 }
             }
         }
+//
+//        首先状态判断。
+//        执行 doRegister 方法。
+//        执行 pipeline.invokeHandlerAddedIfNeeded() 方法。
+//        执行 pipeline.fireChannelRegistered() 方法。
 
+        //注册多路复用器
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
@@ -493,6 +515,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                //注册多路复用器
+                //  NIOchannel中，将Channel和NioEventLoop里面的Selector进行绑定
+                //客户端channel也注册   SelectableChannel？？？
                 doRegister();
                 neverRegistered = false;
                 registered = true;
@@ -502,17 +527,25 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+
+                //  传播通道完成注册的事件
+                //执行 handler 的注册成功之后的回调方法   io 事件，在线程池中执行
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
-                if (isActive()) {
-                    if (firstRegistration) {
+
+
+                if (isActive()) { //  ServerSocketChannel服务端完成bind之后，才会变成active。
+                    if (firstRegistration) { //  如果是socketChannel，active的判断就是是否连接、是否开启
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
                         // again so that we process inbound data.
                         //
                         // See https://github.com/netty/netty/issues/4805
+
+
+                        //  如果是取消register，再重新绑定的，就会直接注册到OP_READ
                         beginRead();
                     }
                 }
@@ -927,6 +960,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             try {
+                //真正读写的
                 doWrite(outboundBuffer);
             } catch (Throwable t) {
                 if (t instanceof IOException && config().isAutoClose()) {

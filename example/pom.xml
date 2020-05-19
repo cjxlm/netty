@@ -153,7 +153,7 @@
       <artifactId>logback-classic</artifactId>
       <scope>runtime</scope>
     </dependency>
-    
+
     <!-- Needed for OCSP -->
     <dependency>
       <groupId>org.bouncycastle</groupId>
@@ -168,7 +168,12 @@
     <dependency>
       <groupId>com.sun.activation</groupId>
       <artifactId>javax.activation</artifactId>
-    </dependency>
+    </dependency><dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>5.0.3</version>
+      <scope>compile</scope>
+  </dependency>
   </dependencies>
 
   <build>

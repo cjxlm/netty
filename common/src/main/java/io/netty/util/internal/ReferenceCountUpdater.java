@@ -105,7 +105,7 @@ public abstract class ReferenceCountUpdater<T extends ReferenceCounted> {
     public final void resetRefCnt(T instance) {
         updater().set(instance, initialValue());
     }
-
+    /**  引用计数+1 */
     public final T retain(T instance) {
         return retain0(instance, 1, 2);
     }
@@ -131,7 +131,7 @@ public abstract class ReferenceCountUpdater<T extends ReferenceCounted> {
         }
         return instance;
     }
-
+    /**  将引用计数减少1，并在引用计数达到0时释放该对象。 */
     public final boolean release(T instance) {
         int rawCnt = nonVolatileRawCnt(instance);
         return rawCnt == 2 ? tryFinalRelease0(instance, 2) || retryRelease0(instance, 1)
@@ -159,7 +159,7 @@ public abstract class ReferenceCountUpdater<T extends ReferenceCounted> {
     }
 
     private boolean retryRelease0(T instance, int decrement) {
-        for (;;) {
+        for (;;) { //  自旋锁
             int rawCnt = updater().get(instance), realCnt = toLiveRealRefCnt(rawCnt, decrement);
             if (decrement == realCnt) {
                 if (tryFinalRelease0(instance, rawCnt)) {
